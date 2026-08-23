@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IHSG Screener Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- TAMBAHKAN BARIS INI UNTUK EXPORT EXCEL -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div>
+      <div class="title-row">
+        <div class="logo">IHS</div>
+        <h1>IHSG Screener Pro</h1>
+        <span class="pill pill-up" id="modePill" style="box-shadow: 0 0 10px rgba(16,185,129,0.2);">Data Live</span>
+      </div>
+      <div class="subtitle">Teknikal · Fundamental · Watchlist · Portofolio · Backtest · Bandarmologi (data resmi IDX)</div>
+    </div>
+    <div class="header-actions" style="display:flex;gap:12px;">
+      <button class="btn btn-outline" id="refreshBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Refresh Data
+      </button>
+      <button class="btn btn-outline" onclick="openSettings()">
+        ⚙️ Pengaturan
+      </button>
+    </div>
+  </div>
+  <div class="error-msg" id="errorMsg" style="display:none;"></div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" data-tab="screener">📋 Screener</button>
+  <button class="tab-btn" data-tab="watchlist">⭐ Watchlist</button>
+  <button class="tab-btn" data-tab="backtest">🔬 Backtest</button>
+  <button class="tab-btn" data-tab="portfolio">💼 Portofolio</button>
+  <button class="tab-btn" data-tab="chart">📈 Grafik</button>
+  <button class="tab-btn" data-tab="about">ℹ️ Info</button>
+</div>
+
+<div class="content" id="content"></div>
+
+<!-- Modal Form Pengaturan -->
+<div class="modal-overlay" id="settingsModalOverlay">
+  <div class="modal">
+    <div class="modal-top">
+      <h3>⚙️ Pengaturan Koneksi</h3>
+      <button class="close-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="field">
+      <label>Supabase REST URL</label>
+      <input id="setSupaUrl" type="text" placeholder="https://xyz.supabase.co">
+    </div>
+    <div class="field">
+      <label>Supabase Anon Key</label>
+      <input id="setSupaKey" type="password" placeholder="eyJhbG...">
+    </div>
+    <div style="margin-bottom:12px; font-size: 11.5px; color: var(--teal); background: rgba(6,182,212,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(6,182,212,0.2);">
+      ℹ️ Kredensial disimpan lokal di browser Anda (Local Storage). <b>Pakai anon key saja</b> —
+      jangan pernah masukkan service_role key di sini: halaman ini publik dan bisa dibaca siapa saja
+      lewat "View Source", sedangkan service_role bisa menulis/menghapus seluruh database.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveSettings()">Simpan & Reload</button>
+      <button class="btn btn-outline" onclick="closeSettings()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Form Portofolio -->
+<div class="modal-overlay" id="portoModalOverlay">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-top">
+      <h3 id="portoModalTitle">Tambah Transaksi Portofolio</h3>
+      <button class="close-btn" id="portoModalClose">✕</button>
+    </div>
+    <div id="portoModalContent"></div>
+  </div>
+</div>
+
+<!-- Modal Detail Emiten -->
+<div class="modal-overlay" id="detailModalOverlay">
+  <div class="modal detail-modal">
+    <div class="modal-top">
+      <h3 id="detailModalTitle">Detail Emiten</h3>
+      <button class="close-btn" id="detailModalClose">✕</button>
+    </div>
+    <div id="detailModalContent"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
