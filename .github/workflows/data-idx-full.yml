@@ -1,0 +1,25 @@
+name: IDX Full Sync (IDX + Yahoo Fundamentals)
+
+on:
+  schedule:
+    - cron: "0 3,7,10 * * 1-5" # 10:00, 14:00, 17:00 WIB, Senin-Jumat
+  workflow_dispatch: {}
+
+jobs:
+  full-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Jalankan full sync (IDX flows + teknikal + fundamental Yahoo)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/sync-idx-full.mjs
