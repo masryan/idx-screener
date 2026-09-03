@@ -247,7 +247,7 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 const ymdCompact = (d) => ymd(d).replaceAll("-", "");
 const isWeekend = (d) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
 const rupiah = (v) =>
-  v == null ? "–"
+  v == null ? "â€“"
   : Math.abs(v) >= 1e12 ? `${(v / 1e12).toFixed(1)} T`
   : Math.abs(v) >= 1e9  ? `${(v / 1e9).toFixed(1)} M`
   : `${(v / 1e6).toFixed(1)} jt`;
@@ -314,7 +314,7 @@ async function fetchDay(date) {
 
       if (status === 403) {
         throw new Error(
-          "IDX membalas 403 — Cloudflare menolak. Coba buka https://www.idx.co.id " +
+          "IDX membalas 403 â€” Cloudflare menolak. Coba buka https://www.idx.co.id " +
             "sekali di browser (koneksi yang sama), atau ganti jaringan.",
         );
       }
@@ -333,7 +333,7 @@ async function fetchDay(date) {
 }
 
 // -------------------------------------------------------------
-// Indikator teknikal — port langsung dari screener_appscript.txt
+// Indikator teknikal â€” port langsung dari screener_appscript.txt
 // (fungsi murni, tidak dipotong, hanya diganti sumber datanya)
 // -------------------------------------------------------------
 function calcEMA(data, period) {
@@ -448,7 +448,7 @@ function calcVWAP(closes, highs, lows, volumes, period) {
 }
 
 // -------------------------------------------------------------
-// Perluasan indikator (filter tambahan screener) — fungsi berdiri
+// Perluasan indikator (filter tambahan screener) â€” fungsi berdiri
 // sendiri, dipanggil 2x di step 4 (bars penuh & bars minus 1 hari
 // terakhir) untuk dapat versi "current" dan "previous" sekaligus.
 // Ditulis terpisah dari buildStockRowFromBars supaya tidak
@@ -459,14 +459,24 @@ function computeExtendedIndicators(bars) {
   const highs = bars.map((b) => (b.high != null ? b.high : b.close));
   const lows = bars.map((b) => (b.low != null ? b.low : b.close));
   const volumes = bars.map((b) => b.volume || 0);
-  const values = bars.map((b) => b.value || 0);
-  const freqs = bars.map((b) => b.frequency || 0);
+  const values = bars.map((b) => b.value ?? null);
+const freqs  = bars.map((b) => b.frequency ?? null);
   const n = closes.length;
 
+    // SMA & rata-rata yang mengabaikan null (untuk value/frequency dari sumber campuran IDX+Yahoo)
+  const smaNullSafe = (arr, p) => {
+    if (!arr || arr.length < p) return null;
+    const slice = arr.slice(-p);
+    const valid = slice.filter(v => v != null);
+    return valid.length >= Math.ceil(p / 2)
+      ? valid.reduce((a, b) => a + b, 0) / valid.length
+      : null;
+  };
   const sma = (arr, p) => calcSMA(arr, p);
   const smaRound = (arr, p) => (sma(arr, p) != null ? Math.round(sma(arr, p)) : null);
+  const smaNullSafeRound = (arr, p) => (smaNullSafe(arr, p) != null ? Math.round(smaNullSafe(arr, p)) : null);
 
-  const frequencyMa20 = smaRound(freqs, 20);
+  const frequencyMa20 = smaNullSafeRound(freqs, 20);
   const frequencyMa50 = smaRound(freqs, 50);
   const curFreq = Math.round(freqs[n - 1] || 0);
   const freqRatio = frequencyMa20 > 0 ? curFreq / frequencyMa20 : null;
@@ -505,19 +515,22 @@ function computeExtendedIndicators(bars) {
     priceMa50: round2(sma(closes, 50)), priceMa100: round2(sma(closes, 100)), priceMa200: round2(sma(closes, 200)),
     volumeMa5: smaRound(volumes, 5), volumeMa10: smaRound(volumes, 10), volumeMa20: smaRound(volumes, 20),
     volumeMa50: smaRound(volumes, 50), volumeMa100: smaRound(volumes, 100), volumeMa200: smaRound(volumes, 200),
-    valueMa5: round2(sma(values, 5)), valueMa10: round2(sma(values, 10)), valueMa20: round2(sma(values, 20)),
-    valueMa50: round2(sma(values, 50)), valueMa100: round2(sma(values, 100)), valueMa200: round2(sma(values, 200)),
-    frequencyMa20, frequencyMa50,
-    freqSpike: freqRatio != null && freqRatio >= 1.5 ? "Ya" : "Tidak",
+        valueMa5: round2(smaNullSafe(values, 5)), valueMa10: round2(smaNullSafe(values, 10)), valueMa20: round2(smaNullSafe(values, 20)),
+    valueMa50: round2(smaNullSafe(values, 50)), valueMa100: round2(smaNullSafe(values, 100)), valueMa200: round2(smaNullSafe(values, 200)),
+    frequencyMa20: smaNullSafeRound(freqs, 20), frequencyMa50: smaNullSafeRound(freqs, 50),
+        freqSpike: freqRatio != null && freqRatio >= 1.5 ? "Ya" : "Tidak",
     rsi14: round1(calcRSI(closes, 14)),
+	rsi14: round1(calcRSI(closes, 14)),
     macd: round2(macdFull.macd), signal: round2(macdFull.signal), macdHist: round2(macdFull.hist),
-    bbUpper, bbLower,
-    atr14: round2(calcATR(highs, lows, closes, 14)),
+       bbUpper, bbLower,
+        atr14: round2(calcATR(highs, lows, closes, 14)),
     adr14: round2(average(ranges)),
-    vwap: round2((highs[n - 1] + lows[n - 1] + closes[n - 1]) / 3),
+    vwap: round2(calcVWAP(closes, highs, lows, volumes, 20)),
+    stoch: (() => { const s = calcStochastic(highs, lows, closes, 14, 3, 3); return s.k != null ? s : null; })(),
     ema5: round2(calcEMA(closes, 5)), ema10: round2(calcEMA(closes, 10)), ema20: round2(calcEMA(closes, 20)),
     ema50: round2(calcEMA(closes, 50)), ema100: round2(calcEMA(closes, 100)), ema200: round2(calcEMA(closes, 200)),
-    fibP: fib.p, fibR1: fib.r1, fibR2: fib.r2, fibR3: fib.r3, fibS1: fib.s1, fibS2: fib.s2, fibS3: fib.s3,
+        stochK: null, stochD: null, prevStochK: null, prevStochD: null,
+	fibP: fib.p, fibR1: fib.r1, fibR2: fib.r2, fibR3: fib.r3, fibS1: fib.s1, fibS2: fib.s2, fibS3: fib.s3,
   };
 }
 
@@ -525,8 +538,15 @@ function calcStochastic(highs, lows, closes, periodK, smoothK, periodD) {
   if (closes.length < periodK + smoothK + periodD) return { k: null, d: null, prevK: null, prevD: null };
   const rawK = [];
   for (let i = periodK - 1; i < closes.length; i++) {
-    const hh = Math.max(...highs.slice(i - periodK + 1, i + 1).map((x) => (x != null ? x : 0)));
-    const ll = Math.min(...lows.slice(i - periodK + 1, i + 1).map((x) => (x != null ? x : Infinity)));
+    // Loop manual: aman untuk array panjang (tidak pakai spread operator yang bisa Stack Overflow)
+    let hh = -Infinity, ll = Infinity;
+    for (let j = i - periodK + 1; j <= i; j++) {
+      const hv = highs[j]; const lv = lows[j];
+      if (hv != null && hv > hh) hh = hv;
+      if (lv != null && lv < ll) ll = lv;
+    }
+    if (hh === -Infinity) hh = 0;
+    if (ll === Infinity) ll = 0;
     rawK.push(hh - ll === 0 ? 50 : ((closes[i] - ll) / (hh - ll)) * 100);
   }
   const slowK = [];
@@ -534,8 +554,10 @@ function calcStochastic(highs, lows, closes, periodK, smoothK, periodD) {
   const slowD = [];
   for (let i = periodD - 1; i < slowK.length; i++) slowD.push(average(slowK.slice(i - periodD + 1, i + 1)));
   return {
-    k: round1(slowK[slowK.length - 1]), d: round1(slowD[slowD.length - 1]),
-    prevK: round1(slowK[slowK.length - 2]), prevD: round1(slowD[slowD.length - 2]),
+    k: round1(slowK[slowK.length - 1]),
+    d: round1(slowD[slowD.length - 1]),
+    prevK: round1(slowK.length >= 2 ? slowK[slowK.length - 2] : null),
+    prevD: round1(slowD.length >= 2 ? slowD[slowD.length - 2] : null),
   };
 }
 
@@ -697,16 +719,38 @@ function buildStockRowFromBars(ticker, bars, listedShares) {
   const lowsFilled = lows.map((l, i) => (l != null ? l : closes[i]));
   const ema21H = calcEMA(highsFilled, 21);
   const ema21L = calcEMA(lowsFilled, 21);
+  const ema21HPrev = calcEMA(highsFilled.slice(0, -1), 21);
+  const ema21LPrev = calcEMA(lowsFilled.slice(0, -1), 21);
   const rsi7 = calcRSI(closes, 7);
-  const rsi21 = calcRSI(closes, 21);
-  const macdFull = calcMACDFull(closes);
-  const { macd, signal, hist, histPrev } = macdFull;
+const rsi21 = calcRSI(closes, 21);
 
-  let cekHarga = "harga belum cross up";
-  if (cClose > ema21H && cClose > ema21L) cekHarga = "harga crossup ema 21 H dan L";
+// Deteksi cross-up yang benar:
+// RSI 7 kemarin <= RSI 21 kemarin, lalu RSI 7 hari ini > RSI 21 hari ini.
+const previousCloses = closes.slice(0, -1);
+const prevRsi7 = previousCloses.length > 21
+  ? calcRSI(previousCloses, 7)
+  : null;
+const prevRsi21 = previousCloses.length > 21
+  ? calcRSI(previousCloses, 21)
+  : null;
+
+const isRsiCrossUp =
+  prevRsi7 != null &&
+  prevRsi21 != null &&
+  prevRsi7 <= prevRsi21 &&
+  rsi7 > rsi21;
+
+const macdFull = calcMACDFull(closes);
+const { macd, signal, hist, histPrev } = macdFull;
+    const diatasKeduaEma = cClose > ema21H && cClose > ema21L;
+  const kemarinDiatasKeduaEma = prevClose > ema21HPrev && prevClose > ema21LPrev;
+  let cekHarga = "harga belum cross up";    if (diatasKeduaEma && !kemarinDiatasKeduaEma) cekHarga = "harga crossup ema 21 H dan L";
+  else if (diatasKeduaEma && kemarinDiatasKeduaEma) cekHarga = "harga diatas ema 21 H dan L";
   else if (cClose > ema21L && cClose <= ema21H) cekHarga = "harga diatas ema 21 L dibawah ema 21 H";
 
-  const cekRsi = rsi7 > rsi21 ? "rsi 7 cross up rsi 21" : "rsi 7 belum cross up";
+  const cekRsi = isRsiCrossUp
+  ? "rsi 7 cross up rsi 21"
+  : "rsi 7 belum cross up";
   let statusRsi = "over bought";
   if (rsi7 <= 30) statusRsi = "over sold";
   else if (rsi7 <= 45) statusRsi = "bearish";
@@ -772,7 +816,7 @@ function buildStockRowFromBars(ticker, bars, listedShares) {
     support, resistance, fibonacci: fib,
     ema21h: round2(ema21H), ema21l: round2(ema21L), ema89: round2(ema89),
     rsi7: round1(rsi7), rsi21: round1(rsi21),
-    macd: round2(macd), signal: round2(signal), macd_hist: round2(hist),
+    macd: round2(macd), signal: round2(signal), macd_hist: round2(hist), prev_macd_hist: round2(histPrev),
     cek_harga: cekHarga, cek_rsi: cekRsi, status_rsi: statusRsi, cek_macd: cekMacd,
     volume: cVol, vol_ma20: volMA20, vol_ratio: volRatio, avg_volume_3m: avgVolume3m,
     cek_volume: cekVolume, keyakinan_naik: keyakinanNaik,
@@ -788,7 +832,7 @@ function buildStockRowFromBars(ticker, bars, listedShares) {
 }
 
 // -------------------------------------------------------------
-// Yahoo Finance — HANYA untuk fundamental (PER/PBV/ROE/dst)
+// Yahoo Finance â€” HANYA untuk fundamental (PER/PBV/ROE/dst)
 // Port dari fetchYahooFundamental / getYahooCrumb_ di Apps Script.
 // Crumb + cookie di-cache sekali per proses (bukan per ticker).
 // -------------------------------------------------------------
@@ -815,14 +859,14 @@ async function getYahooCrumb() {
     const crumb = crumbText && !crumbText.startsWith("<") ? crumbText : "";
 
     if (!yahooDiagLogged && (!crumbRes.ok || !crumb)) {
-      console.log(`  [yahoo] gagal ambil crumb (status cookie=${cookieRes.status}, status crumb=${crumbRes.status}, cookie=${cookieHeader ? "ada" : "KOSONG"}, crumb=${crumb ? "ada" : "KOSONG"}) — fundamental akan null untuk semua ticker.`);
+      console.log(`  [yahoo] gagal ambil crumb (status cookie=${cookieRes.status}, status crumb=${crumbRes.status}, cookie=${cookieHeader ? "ada" : "KOSONG"}, crumb=${crumb ? "ada" : "KOSONG"}) â€” fundamental akan null untuk semua ticker.`);
       yahooDiagLogged = true;
     }
 
     yahooAuthCache = { crumb, cookie: cookieHeader };
   } catch (err) {
     if (!yahooDiagLogged) {
-      console.log(`  [yahoo] error saat ambil crumb: ${err.message} — fundamental akan null untuk semua ticker.`);
+      console.log(`  [yahoo] error saat ambil crumb: ${err.message} â€” fundamental akan null untuk semua ticker.`);
       yahooDiagLogged = true;
     }
     yahooAuthCache = { crumb: "", cookie: "" };
@@ -852,7 +896,7 @@ async function fetchYahooFundamentals(ticker, priceHint) {
     });
     if (!res.ok) {
       if (!yahooDiagLogged) {
-        console.log(`  [yahoo] quoteSummary ${ticker} balas ${res.status} — cek apakah IP/jaringan diblok Yahoo juga (mirip kasus Cloudflare IDX).`);
+        console.log(`  [yahoo] quoteSummary ${ticker} balas ${res.status} â€” cek apakah IP/jaringan diblok Yahoo juga (mirip kasus Cloudflare IDX).`);
         yahooDiagLogged = true;
       }
       return empty;
@@ -892,7 +936,7 @@ async function fetchYahooFundamentals(ticker, priceHint) {
       const inconsistent = bookValue == null || bookValue <= 0 ||
         Math.abs(derivedBookValue - bookValue) / derivedBookValue > 0.5;
       if (inconsistent && derivedBookValue > 0) {
-        console.log(`  [yahoo] book_value mentah ${ticker} tidak konsisten (raw=${bookValue ?? "null"}, harga/PBV=${derivedBookValue}) — pakai hasil turunan.`);
+        console.log(`  [yahoo] book_value mentah ${ticker} tidak konsisten (raw=${bookValue ?? "null"}, harga/PBV=${derivedBookValue}) â€” pakai hasil turunan.`);
         bookValue = derivedBookValue;
       }
     }
@@ -935,7 +979,7 @@ async function fetchYahooFundamentals(ticker, priceHint) {
 }
 
 // -------------------------------------------------------------
-// Yahoo Finance — HARGA LIVE (batch, terpisah dari flows/IDX)
+// Yahoo Finance â€” HARGA LIVE (batch, terpisah dari flows/IDX)
 // Pakai v7/finance/quote: bisa ambil ratusan ticker sekaligus dalam
 // SATU request (beda dengan quoteSummary di atas yang 1 request/ticker).
 // Cocok dijalankan sering (mis. tiap beberapa menit saat jam bursa)
@@ -1014,8 +1058,8 @@ try {
   const periodLabel = livePrice
     ? ""
     : (startArg || endArg
-        ? ` — periode ${startArg ?? "(awal data)"} s/d ${endArg ?? "hari ini"}`
-        : ` — ${days} hari perdagangan` + (offsetDays > 0 ? ` (mundur ${offsetDays} hari kalender dari hari ini)` : ""));
+        ? ` â€” periode ${startArg ?? "(awal data)"} s/d ${endArg ?? "hari ini"}`
+        : ` â€” ${days} hari perdagangan` + (offsetDays > 0 ? ` (mundur ${offsetDays} hari kalender dari hari ini)` : ""));
   console.log(livePrice
     ? "Update harga live dari Yahoo (batch, tidak menyentuh IDX/flows/teknikal/fundamental)..."
     : `Sinkronisasi IDX penuh (harga+teknikal+flow) ${skipFundamentals ? "" : "+ fundamental Yahoo "}${periodLabel}` +
@@ -1030,7 +1074,7 @@ try {
     }
     console.log(`Contoh 1 baris mentah dari IDX GetStockSummary (tanggal ${ymd(cursor)}):`);
     console.log(JSON.stringify(rows[0] ?? {}, null, 2));
-    if (rows.length === 0) console.log("\n(Tetap kosong sampai 10 hari mundur — cek IDX_BASE / koneksi, bukan soal tanggal.)");
+    if (rows.length === 0) console.log("\n(Tetap kosong sampai 10 hari mundur â€” cek IDX_BASE / koneksi, bukan soal tanggal.)");
     console.log("\nSesuaikan objek IDX_FIELDS di kepala berkas kalau nama field di atas berbeda.");
     process.exit(0);
   }
@@ -1038,7 +1082,7 @@ try {
   // 1. Emiten yang diikuti
   const stocksRows = await sb("stocks?select=ticker");
   let followed = new Set(stocksRows.map((r) => r.ticker));
-  if (followed.size === 0) throw new Error("Tabel stocks kosong — seed ticker dulu (mis. 02_seed_tickers.sql).");
+  if (followed.size === 0) throw new Error("Tabel stocks kosong â€” seed ticker dulu (mis. 02_seed_tickers.sql).");
   if (onlyTickers) followed = new Set([...followed].filter((t) => onlyTickers.has(t)));
   console.log(`${followed.size} emiten diikuti`);
 
@@ -1082,7 +1126,7 @@ try {
   let totalRows = 0;
 
   if (skipFetch) {
-    console.log("Melewati penarikan IDX (--skip-fetch) — memakai data `flows` yang sudah ada di Supabase.");
+    console.log("Melewati penarikan IDX (--skip-fetch) â€” memakai data `flows` yang sudah ada di Supabase.");
   } else {
     const rangeMode = Boolean(startArg || endArg);
     let cursor, cursorMin = null;
@@ -1221,7 +1265,7 @@ try {
 
         technical = buildStockRowFromBars(ticker, cleanBars, cleanBars.at(-1)?.listedShares);
 
-        // Perluasan indikator (screener filter tambahan) — dihitung 2x:
+        // Perluasan indikator (screener filter tambahan) â€” dihitung 2x:
         // sekali dengan semua bar (current), sekali dengan bar dikurangi
         // 1 hari terakhir (previous), lalu ditulis ke stock_indicators_ext.
         const ext = computeExtendedIndicators(cleanBars);
@@ -1315,3 +1359,4 @@ try {
   await finish("error", 0, 0, message).catch(() => {});
   process.exit(1);
 }
+
