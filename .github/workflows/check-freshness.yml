@@ -3,9 +3,6 @@ name: IDX Data Freshness Check
 on:
   schedule:
     # Tiap 30 menit, 08:30-16:30 WIB (01:30-09:30 UTC), Senin-Jumat.
-    # Sengaja lebih longgar dari jadwal live-price (*/10 menit) supaya
-    # tidak berisik di Actions tab, tapi cukup rapat buat nangkep kalau
-    # live-price berhenti jalan lebih dari ~20-30 menit.
     - cron: "0,30 1-9 * * 1-5"
   workflow_dispatch: {}
 
@@ -26,6 +23,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Sesuaikan ambang batas kalau perlu (menit):
           STALE_THRESHOLD_MIN: "20"
         run: node scripts/check-freshness.mjs
