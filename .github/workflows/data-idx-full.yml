@@ -1,14 +1,15 @@
-name: IDX Full Sync (IDX + Yahoo Fundamentals)
+name: IDX Full Sync (Harian)
 
 on:
   schedule:
-    - cron: "0 3,7,10 * * 1-5" # 10:00, 14:00, 17:00 WIB, Senin-Jumat
+    # 3x sehari: jam 10:00, 14:00, 17:00 WIB (UTC 03:00, 07:00, 10:00)
+    - cron: "0 3,7,10 * * 1-5"
   workflow_dispatch: {}
 
 jobs:
   full-sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -18,7 +19,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Jalankan full sync (IDX flows + teknikal + fundamental Yahoo)
+      - name: Full sync (IDX flows + teknikal + fundamental Yahoo)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
