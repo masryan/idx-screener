@@ -1,0 +1,25 @@
+name: Stockbit Historical Sync
+
+on:
+  schedule:
+    # 16:00 WIB Senin-Jumat -- setelah bursa tutup (15:00/15:49 WIB), sebelum
+    # job "IDX Daily Technical" jam 18:00 WIB. Kalau sync-idx-full.mjs dari
+    # PC rumah sedang tidak jalan, tambalan Stockbit ini sudah lebih dulu
+    # mengisi price_history_stockbit -- flow_summary (lihat
+    # sql/09_flow_summary_stockbit_fallback.sql) otomatis pakai ini.
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  stockbit-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Tarik histori Stockbit -> price_history_stockbit
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/sync-stockbit-history.mjs
