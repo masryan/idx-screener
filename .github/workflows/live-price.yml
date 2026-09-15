@@ -2,7 +2,7 @@ name: IDX Live Price (Yahoo)
 
 on:
   schedule:
-    - cron: "*/10 2-8 * * 1-5" # tiap 10 menit, 09:00-15:59 WIB, Senin-Jumat
+   - cron: "4,14,24,34,44,54 2-8 * * 1-5"   # tiap 10 menit, offset +4 # tiap 10 menit, 09:00-15:59 WIB, Senin-Jumat
   workflow_dispatch: {}
 
 jobs:
