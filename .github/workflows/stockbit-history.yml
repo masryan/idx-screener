@@ -11,8 +11,9 @@ on:
     # Total 15x/hari kerja. Sebelumnya cuma 1x/hari (16:00 WIB) -- lihat
     # riwayat: itu diganti karena mau update harga lebih sering sepanjang
     # jam bursa, bukan cuma sekali setelah tutup.
-    - cron: "0,30 2-8 * * 1-5"
-    - cron: "0 9 * * 1-5"
+    schedule:
+    - cron: "12,42 2-8 * * 1-5"   # tiap 30 menit, offset +12
+    - cron: "12 9 * * 1-5"        # run terakhir 16:12 WIB
   workflow_dispatch: {}
 
 jobs:
