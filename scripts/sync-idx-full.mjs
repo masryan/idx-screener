@@ -993,6 +993,14 @@ const YAHOO_QUOTE_BATCH = 50; // aman di bawah limit URL & rate Yahoo
 async function fetchYahooLiveQuotes(tickers) {
   const auth = await getYahooCrumb();
   const results = new Map();
+  let diagLogged = false; // cukup sekali per run, bukan per batch
+
+  if (!auth.crumb) {
+    console.log(
+      `  [yahoo-live] peringatan: crumb Yahoo KOSONG (cookie=${auth.cookie ? "ada" : "KOSONG"}) ` +
+        `-- request quote kemungkinan besar akan ditolak (401/429/999).`,
+    );
+  }
 
   for (const chunk of chunkArr(tickers, YAHOO_QUOTE_BATCH)) {
     const symbols = chunk.map((t) => `${t}.JK`).join(",");
@@ -1005,6 +1013,16 @@ async function fetchYahooLiveQuotes(tickers) {
       });
       if (!res.ok) {
         console.log(`  [yahoo-live] batch ${chunk.length} ticker balas ${res.status}.`);
+        if (!diagLogged) {
+          const detail = (await res.text().catch(() => "")).slice(0, 300);
+          console.log(
+            `  [yahoo-live] detail respons (dipotong 300 char): ${detail || "(kosong)"}\n` +
+              `  [yahoo-live] kalau status 401/403/429/999 ini kemungkinan besar Yahoo memblokir ` +
+              `IP datacenter/CI (sama seperti Cloudflare di IDX) -- coba jalankan dari koneksi ` +
+              `rumah/non-datacenter atau self-hosted runner.`,
+          );
+          diagLogged = true;
+        }
         await sleep(YAHOO_DELAY_MS);
         continue;
       }
@@ -1107,8 +1125,19 @@ try {
 
     const message = `live-price: ${okCount} ok / ${failCount} tanpa data dari ${followed.size} ticker`;
     console.log(`\n${message}`);
+
+    if (okCount === 0 && followed.size > 0) {
+      // Tidak ada satu pun ticker yang dapat harga -> jangan pura-pura sukses.
+      // Ini yang tadinya bikin GitHub Actions hijau padahal `stocks` tidak
+      // berubah sama sekali (Yahoo kemungkinan menolak IP runner).
+      const failMessage = `${message} -- GAGAL TOTAL, kemungkinan Yahoo memblokir IP runner (lihat log [yahoo-live] di atas).`;
+      if (!dryRun) await finish("error", okCount, failCount, failMessage);
+      console.error(`\nGAGAL: ${failMessage}`);
+      process.exit(1);
+    }
+
     if (!dryRun) await finish(failCount === 0 ? "success" : "partial", okCount, failCount, message);
-    process.exit(0);
+    process.exit(0); // partial (sebagian ticker tanpa data, mis. suspend) tetap dianggap normal
   }
 
   if (!dryRun) {
