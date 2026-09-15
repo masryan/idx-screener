@@ -1,7 +1,7 @@
 name: IDX Daily Technical (skip-fetch)
 on:
   schedule:
-    - cron: "0 11 * * 1-5"   # 18:00 WIB Sen-Jumat — SETELAH PC rumah selesai sync harian
+    cron: "8 11 * * 1-5"   #   # 18:00 WIB Sen-Jumat — SETELAH PC rumah selesai sync harian
   workflow_dispatch: {}
 jobs:
   daily-technical:
