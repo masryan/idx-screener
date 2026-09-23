@@ -1,0 +1,45 @@
+name: Sync Broker Summary (Stockbit)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (tarik data tapi jangan tulis ke DB) -- pakai ini untuk tes pertama kali"
+        type: boolean
+        default: true
+      from:
+        description: "Tanggal mulai (YYYY-MM-DD, kosongkan untuk hari bursa terbaru saja)"
+        required: false
+      to:
+        description: "Tanggal akhir (YYYY-MM-DD, wajib diisi kalau 'from' diisi)"
+        required: false
+  schedule:
+    # 09:35 UTC = 16:35 WIB -- ~30-35 menit setelah bursa BEI tutup (16:00/16:15
+    # WIB), kasih jeda supaya data broker summary hari itu sudah final di sisi
+    # Stockbit. SESUAIKAN kalau timezone runner/kebutuhan kamu beda.
+    # JANGAN nyalakan schedule ini sebelum tes manual (workflow_dispatch, dry-run
+    # ON) berhasil dulu -- lihat catatan risiko IP-blocking di app.js/percakapan.
+    - cron: "35 9 * * 1-5"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run sync-broker-summary.mjs
+        env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Opsional -- isi kalau endpoint di Pengaturan app.js beda dari default:
+          # STOCKBIT_BROKER_ENDPOINT: ${{ secrets.STOCKBIT_BROKER_ENDPOINT }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "${{ github.event.inputs.from }}" ]; then ARGS="$ARGS --from=${{ github.event.inputs.from }} --to=${{ github.event.inputs.to }}"; fi
+          node sync-broker-summary.mjs $ARGS
